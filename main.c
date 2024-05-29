@@ -519,6 +519,11 @@ ISR (ADC_vect)
 
 int main (void)
 {
+	uint32_t cur_time;	
+	static uint32_t time = 0;
+	uint8_t count = 0;
+	uint32_t time_start=0, time_end = 0, time_loop;
+	
 	INIT_T0();
 	
 	INIT_T1();
@@ -564,7 +569,7 @@ index_buf		 = 0;
 		}
 */
 //			_delay_ms(10);
-		delay_ms(10);
+//		delay_ms(10);
 // 		cli();
 // 		RS_1();
 // 		delay_us(4);		
@@ -575,6 +580,27 @@ index_buf		 = 0;
 		
 		ugol3=ugol1;
 		ugol4=ugol1;
+		
+		
+		cur_time = micros();
+		if((int32_t)(cur_time - time) >= 0) {
+			//time_end = millis();
+			time_loop = cur_time - time_start;
+			time_start = cur_time;
+			
+			time = cur_time + TIME_FRAME_US;
+// 			lcd_clear();
+// 			lcd_set_xy(1,0);			
+// 			lcd_out_PGM_Items(menu_ptr, 0);
+// 			lcd_set_xy(1,1);
+// 			lcd_out_PGM_Items(menu_ptr, 3);
+// 			lcd_set_xy(0,0);
+// 			lcd_send('>', DATA);
+			lcd_clear_xy(7,0,5);
+			lcd_set_xy(7,0);
+			lcd_out_var ((uint16_t) ((time_loop>>2)));
+			
+		}
 	}
 }
 

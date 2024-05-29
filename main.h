@@ -14,6 +14,7 @@
 #define MILLIS_INC (MICROSECONDS_PER_TIMER0_OVERFLOW / 1000)
 #define FRACT_INC ((MICROSECONDS_PER_TIMER0_OVERFLOW % 1000) >> 3)
 #define FRACT_MAX (1000 >> 3)
+#define TIME_FRAME_US 100000
 
 unsigned long millis(void);
 unsigned long micros(void);

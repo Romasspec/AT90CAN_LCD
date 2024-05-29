@@ -132,6 +132,13 @@ void lcd_clear(void) {
 	delay_ms(2);
 }
 
+void lcd_clear_xy(uint8_t x, uint8_t y, uint8_t lenght){
+	lcd_set_xy(x,y);
+	for(uint8_t i = 0; i<lenght; i++) {
+		lcd_send(' ', DATA);
+	}
+}
+
 void lcd_set_xy(uint8_t x, uint8_t y)  {
 
 	lcd_send( ((((y&1)<<6)+(x&0x0F))|128),COMMAND);
@@ -142,6 +149,12 @@ void lcd_out (char *txt) {
 		lcd_send(*txt, DATA);
 		txt++;
 	}
+}
+
+void lcd_out_var (uint16_t value) {
+	char buffer[21];
+	sprintf(buffer, "%u", value);
+	lcd_out(buffer);
 }
 
 void lcd_out_PGM (const char *txt_PGM) {

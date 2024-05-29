@@ -1,5 +1,6 @@
 #ifndef LCD_H_
 #define LCD_H_
+#include <stdio.h>
 #include <avr/io.h>
 #include <avr/pgmspace.h>
 
@@ -48,13 +49,14 @@ typedef enum {
 void lcd_init(void);
 void lcd_set_state(lcd_state state, cursor_state cur_state, cursor_mode cur_mode);
 void lcd_clear(void);
+void lcd_clear_xy(uint8_t x, uint8_t y, uint8_t lenght);
 void lcd_send(uint8_t byte, dat_or_comm dc);
 void lcd_set_xy(uint8_t x, uint8_t y);
 void lcd_out (char *txt);
 void lcd_out_PGM (const char *txt_PGM);
 uint8_t convertCyr(uint8_t ch);
 void lcd_out_PGM_Items (const char* const* menu, uint8_t num);
-
+void lcd_out_var (uint16_t value);
 
 
 #endif /* LCD_H_ */
