@@ -19,6 +19,7 @@ volatile unsigned int U1, U2, CH1_count, CH2_count;
 	const char str6[] PROGMEM = "Meíþ 5";
 	
 	const char* const menu_ptr[] PROGMEM = { str1, str2, str3, str4, str5, str6};
+	const char* const str6_ptr PROGMEM = str6;
 	
 
 #define PA0_ON		PORTA |= (1<<PB0);
@@ -557,7 +558,7 @@ index_buf		 = 0;
 	lcd_out_PGM_Items(menu_ptr, 0);
 	lcd_set_xy(1,1);
 	//lcd_out_PGM(str2);
-	lcd_out_PGM_Items(menu_ptr, 3);
+	lcd_out_PGM_Items(&str6_ptr, 0);
 	lcd_set_xy(0,0);
 	lcd_send('>', DATA);	
 	
