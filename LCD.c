@@ -129,7 +129,8 @@ void lcd_set_state(lcd_state state, cursor_state cur_state, cursor_mode cur_mode
 
 void lcd_clear(void) {
 	lcd_send(0x01,COMMAND);
-	delay_ms(2);
+	//delay_ms(2);
+	delay_us(2000);
 }
 
 void lcd_clear_xy(uint8_t x, uint8_t y, uint8_t lenght){

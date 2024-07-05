@@ -11,7 +11,7 @@ volatile unsigned int U1, U2, CH1_count, CH2_count;
 
 
 //static char *logo = "LOGO";
-	const char str1[] PROGMEM = "Meíþ 0";
+	const char str1[] PROGMEM = "Êîíòð.";
 	const char str2[] PROGMEM = "Meíþ 1";
 	const char str3[] PROGMEM = "Meíþ 2";
 	const char str4[] PROGMEM = "Meíþ 3";
@@ -33,6 +33,17 @@ volatile unsigned int U1, U2, CH1_count, CH2_count;
 
 #define PA3_ON		PORTA |= (1<<PB3);
 #define PA3_OFF		PORTA &=~(1<<PB3);
+
+#define ENC_S1			PA0
+#define ENC_S2			PA1
+#define ENC_KEY			PA2
+#define ENC_S1_READ()	(PINA & (1<<ENC_S1))
+#define ENC_S2_READ()	(PINA & (1<<ENC_S2))
+#define ENC_KEY_READ()	(PINA & (1<<ENC_KEY))
+
+int8_t poll_encoder(void);
+#define TIMEOUT_STEP_5			30
+#define TIMEOUT_STEP_10			20
 
 #define T2_8		TCCR2A		|= (1<<CS22)|(1<<CS20);
 #define T2_64		TCCR2A		|= (1<<CS22)|(1<<CS21)|(1<<CS20);
@@ -521,10 +532,10 @@ ISR (ADC_vect)
 int main (void)
 {
 	uint32_t cur_time;	
-	static uint32_t time = 0;
+	static uint32_t time = 0, time_enc = 0;
 	uint8_t count = 0;
-	uint32_t time_start=0, time_end = 0, time_loop;
-	
+	uint32_t time_start=0, time_end = 0, time_loop = 0;
+	uint8_t menu;
 	INIT_T0();
 	
 	INIT_T1();
@@ -560,8 +571,11 @@ index_buf		 = 0;
 	//lcd_out_PGM(str2);
 	lcd_out_PGM_Items(&str6_ptr, 0);
 	lcd_set_xy(0,0);
-	lcd_send('>', DATA);	
+	lcd_send('>', DATA);
 	
+	ugol1 = 0;
+	menu = 0;
+	uint8_t btn_flag = 0;
 	while(1)
 	{
 /*		if (i2c_bysy == 0)
@@ -586,22 +600,147 @@ index_buf		 = 0;
 		cur_time = micros();
 		if((int32_t)(cur_time - time) >= 0) {
 			//time_end = millis();
-			time_loop = cur_time - time_start;
-			time_start = cur_time;
+			//time_loop = cur_time - time_start;
+			//time_start = cur_time;
 			
 			time = cur_time + TIME_FRAME_US;
-// 			lcd_clear();
-// 			lcd_set_xy(1,0);			
-// 			lcd_out_PGM_Items(menu_ptr, 0);
+			time_start = micros();
+ 			lcd_clear();			 
+			time_loop = micros() - time_start;
+ 			lcd_set_xy(1,0);			
+ 			lcd_out_PGM_Items(menu_ptr+menu, 0);
+			 if(btn_flag & 0x02) {
+				 lcd_set_xy(15,0);
+				 lcd_send('<', DATA);
+				 lcd_set_xy(15,1);
+				 lcd_send('<', DATA);
+			 } else {
+				 lcd_set_xy(0,0);
+				 lcd_send('>', DATA);
+			 }
 // 			lcd_set_xy(1,1);
 // 			lcd_out_PGM_Items(menu_ptr, 3);
 // 			lcd_set_xy(0,0);
 // 			lcd_send('>', DATA);
-			lcd_clear_xy(7,0,5);
+//			lcd_clear_xy(7,0,5);
 			lcd_set_xy(7,0);
-			lcd_out_var ((uint16_t) ((time_loop>>2)));
+			lcd_out_var ((uint16_t) ((time_loop>>0)));
+//			lcd_clear_xy(9,1,5);
+			lcd_set_xy(9,1);
+			lcd_out_var((uint16_t) OCR1A);
 			
 		}
+		
+		if((int32_t)(cur_time - time_enc) >= 0) {
+			time_enc = cur_time + 1000;			
+			
+			if (btn_flag & 0x02){
+				switch (menu) {
+					
+					case 0: {
+						OCR1A += (uint16_t) (poll_encoder());
+						if (OCR1A > 311) {
+							OCR1A = 0;
+						}
+						if (OCR1A > 300) {
+							OCR1A = 300;
+						}
+						break;
+					}
+					
+					case 1: {
+						
+						break;
+					}
+					
+					case 2: {
+						
+						break;
+					}
+					
+					case 3: {
+						
+						break;
+					}
+								
+					case 4: {
+						
+						break;
+					}
+					
+					case 5: {
+						
+						break;
+					}		
+				}
+			} else {
+				menu += (uint8_t) (poll_encoder());
+				if ((int8_t)menu > 5) {
+					menu = 5;
+				}
+				if ((int8_t)menu < 0) {
+					menu = 0;
+				}
+			}			
+			
+			if(!ENC_KEY_READ()) {
+				btn_flag |= 0x01;
+			} else if (btn_flag & 0x01)	{
+				if(ENC_KEY_READ()) {				
+					btn_flag &=~0x01;
+					btn_flag ^= 0x02;										
+				}
+			}
+			
+		}
+		
 	}
 }
 
+int8_t poll_encoder(void)
+{
+	static uint8_t enc_state = 0;
+	uint8_t cur_enc_state = 0;
+	static uint32_t time_start_prev = 0;
+	uint32_t time_step, timer_start;
+	
+	if (ENC_S1_READ()) {
+		cur_enc_state |= (1<<0);
+	}
+	
+	if (ENC_S2_READ()) {
+		cur_enc_state |= (1<<1);
+	}
+	
+	if (cur_enc_state == (enc_state & 0b00000011)) {
+		return 0;
+	}
+	
+	enc_state = (enc_state << 2) | cur_enc_state;
+	
+	timer_start = millis();
+	if (enc_state == 0b11010010) {				//3->1->0->2
+		
+		time_step = timer_start - time_start_prev;
+		time_start_prev = timer_start;
+		if (time_step < TIMEOUT_STEP_10)	{
+			return 10;
+		} else if (time_step < TIMEOUT_STEP_5)	{
+			return 5;
+		}		
+		return 1;
+	}
+	
+	if (enc_state == 0b11100001) {				//3->2->0->1
+		//timer_start = millis();
+		time_step = timer_start - time_start_prev;
+		time_start_prev = timer_start;
+		if (time_step < TIMEOUT_STEP_10)	{
+			return -10;
+		} else if (time_step < TIMEOUT_STEP_5)	{
+			return -5;
+		}
+		return -1;
+	}
+	return 0;
+}
