@@ -9,17 +9,24 @@ volatile unsigned char step, step_adc, ugol1, ugol2, ugol3, ugol4, step_f ;
 volatile unsigned long value1, value2;
 volatile unsigned int U1, U2, CH1_count, CH2_count;
 
-
+#define MENU_ITEMS		11
 //static char *logo = "LOGO";
 	const char str1[] PROGMEM = "Контр.";
-	const char str2[] PROGMEM = "Meню 1";
-	const char str3[] PROGMEM = "Meню 2";
+	const char str2[] PROGMEM = "Данные";
+	const char str3[] PROGMEM = "Адрес";
 	const char str4[] PROGMEM = "Meню 3";
 	const char str5[] PROGMEM = "Meню 4";
 	const char str6[] PROGMEM = "Meню 5";
+	const char str7[] PROGMEM = "Меню 6";
+	const char str8[] PROGMEM = "Meню 7";
+	const char str9[] PROGMEM = "Meню 8";
+	const char str10[] PROGMEM = "Meню 9";
+	const char str11[] PROGMEM = "Meню 10";
+	const char str12[] PROGMEM = "Meню 11";
 	
-	const char* const menu_ptr[] PROGMEM = { str1, str2, str3, str4, str5, str6};
+	const char* const menu_ptr[] PROGMEM = { str1, str2, str3, str4, str5, str6, str7, str8, str9, str10, str11, str12};
 	const char* const str6_ptr PROGMEM = str6;
+	
 	
 
 #define PA0_ON		PORTA |= (1<<PB0);
@@ -55,9 +62,12 @@ int8_t poll_encoder(void);
 #define ADC_3		ADMUX		|= (1<<MUX1)|(1<<MUX0);			// ADC3
 #define ADC_start	ADCSRA		|= (1<<ADSC);
 
+volatile unsigned char i2c_slave_adr;
+
 #define GY_ADR							  0b10100000
-#define SLA_W					GY_ADR & 0b11111110
-#define SLA_R					GY_ADR | 0b00000001
+#define HLF8574T_ADR			(0x1E<<1)
+#define SLA_W					HLF8574T_ADR & 0b11111110
+#define SLA_R					HLF8574T_ADR | 0b00000001
 //#define ADDR					0x01
 
 
@@ -161,13 +171,13 @@ ISR (TWI_vect)
 		case 0x10:
 							if (READ == 0)
 							{
-								TWDR			 = SLA_W;//GY_ADR & R_W;
+								TWDR			 = (i2c_slave_adr << 1) & 0xFE;		//SLA_W;//GY_ADR & R_W;
 								TWCR		 	&= 0xDF;
 								TWCR			|=	(1<<TWINT)|(1<<TWEN)|(1<<TWIE);
 							}
 							else
 							{
-								TWDR			 = SLA_R;//GY_ADR | R_W;
+								TWDR			 = (i2c_slave_adr << 1) | 0x01;		//SLA_R;//GY_ADR | R_W;
 								TWCR		 	&= 0xDF;
 								TWCR			|=	(1<<TWINT)|(1<<TWEN)|(1<<TWIE);
 							}
@@ -535,14 +545,15 @@ int main (void)
 	static uint32_t time = 0, time_enc = 0;
 	uint8_t count = 0;
 	uint32_t time_start=0, time_end = 0, time_loop = 0;
-	uint8_t menu;
-	INIT_T0();
+	uint8_t menu, menu_lcd, cursor_pos, temp;
+	uint8_t menu_var[MENU_ITEMS];
 	
+	INIT_T0();
 	INIT_T1();
 //	INIT_T2();
 	INIT_PORT();
 //	INIT_ADC();
-//	I2C_INIT();
+	I2C_INIT();
 	sei();
 	lcd_init();
 	ADC_0;
@@ -555,7 +566,7 @@ int main (void)
 //	i2c_read (0x02, 14);
 
 
-//i2c_buf [0] = 25;
+i2c_buf [0] = 1;
 /*
 i2c_buf [1] = 2;
 i2c_buf [2] = 3;
@@ -575,7 +586,18 @@ index_buf		 = 0;
 	
 	ugol1 = 0;
 	menu = 0;
+	menu_lcd = menu;
+	cursor_pos = 0;
 	uint8_t btn_flag = 0;
+	
+	for (uint8_t i = 0; i<MENU_ITEMS; i++)
+	{
+		menu_var[i] = 0;
+	}
+	
+	i2c_slave_adr = 0x27;	
+	i2c_write(0x00,0);
+	
 	while(1)
 	{
 /*		if (i2c_bysy == 0)
@@ -607,15 +629,30 @@ index_buf		 = 0;
 			time_start = micros();
  			lcd_clear();			 
 			time_loop = micros() - time_start;
+			
+			menu_lcd = menu;			
+			if (menu_lcd > MENU_ITEMS-1)	{
+				menu_lcd = MENU_ITEMS-1;
+			}
+			
  			lcd_set_xy(1,0);			
- 			lcd_out_PGM_Items(menu_ptr+menu, 0);
+ 			lcd_out_PGM_Items(menu_ptr+menu_lcd, 0);
+			lcd_set_xy(1,1);
+			lcd_out_PGM_Items(menu_ptr+menu_lcd+1, 0);
+			
 			 if(btn_flag & 0x02) {
-				 lcd_set_xy(15,0);
-				 lcd_send('<', DATA);
-				 lcd_set_xy(15,1);
-				 lcd_send('<', DATA);
+				 if (cursor_pos > 0){
+					 lcd_set_xy(15,1);
+				 } else {
+					  lcd_set_xy(15,0);
+				 }				 
+				 lcd_send('<', DATA);				 
 			 } else {
-				 lcd_set_xy(0,0);
+				if (cursor_pos > 0){
+					 lcd_set_xy(0,1);
+				} else {
+					 lcd_set_xy(0,0);
+				}
 				 lcd_send('>', DATA);
 			 }
 // 			lcd_set_xy(1,1);
@@ -623,19 +660,18 @@ index_buf		 = 0;
 // 			lcd_set_xy(0,0);
 // 			lcd_send('>', DATA);
 //			lcd_clear_xy(7,0,5);
-			lcd_set_xy(7,0);
-			lcd_out_var ((uint16_t) ((time_loop>>0)));
+//			lcd_set_xy(7,0);
+//			lcd_out_var ((uint16_t) ((time_loop>>0)));
 //			lcd_clear_xy(9,1,5);
-			lcd_set_xy(9,1);
-			lcd_out_var((uint16_t) OCR1A);
-			
+			//i2c_read((i2c_slave_adr << 1) + 1, 0);
+			i2c_read(0xFF,1);
 		}
 		
 		if((int32_t)(cur_time - time_enc) >= 0) {
 			time_enc = cur_time + 1000;			
 			
 			if (btn_flag & 0x02){
-				switch (menu) {
+				switch (menu_lcd + cursor_pos) {
 					
 					case 0: {
 						OCR1A += (uint16_t) (poll_encoder());
@@ -645,41 +681,106 @@ index_buf		 = 0;
 						if (OCR1A > 300) {
 							OCR1A = 300;
 						}
+						
+						lcd_set_xy(12,cursor_pos);
+						lcd_out_var((uint16_t) OCR1A);
+						
 						break;
 					}
 					
 					case 1: {
-						
+						menu_var[menu_lcd+cursor_pos] += poll_encoder();
+						lcd_set_xy(12,cursor_pos);
+						lcd_out_var((uint16_t)i2c_buf[0]);
 						break;
 					}
 					
 					case 2: {
-						
+						i2c_slave_adr += poll_encoder();
+						lcd_set_xy(12,cursor_pos);
+						lcd_out_var((uint16_t)i2c_slave_adr);
 						break;
 					}
 					
 					case 3: {
-						
+						menu_var[menu_lcd+cursor_pos] += poll_encoder();
+						lcd_set_xy(12,cursor_pos);
+						lcd_out_var((uint16_t)menu_var[menu_lcd+cursor_pos]);
 						break;
 					}
 								
 					case 4: {
-						
+						menu_var[menu_lcd+cursor_pos] += poll_encoder();
+						lcd_set_xy(12,cursor_pos);
+						lcd_out_var((uint16_t)menu_var[menu_lcd+cursor_pos]);
 						break;
 					}
 					
 					case 5: {
-						
+						menu_var[menu_lcd+cursor_pos] += poll_encoder();
+						lcd_set_xy(12,cursor_pos);
+						lcd_out_var((uint16_t)menu_var[menu_lcd+cursor_pos]);
+						break;
+					}
+					
+					case 6: {
+						menu_var[menu_lcd+cursor_pos] += poll_encoder();
+						lcd_set_xy(12,cursor_pos);
+						lcd_out_var((uint16_t)menu_var[menu_lcd+cursor_pos]);
+						break;
+					}
+					
+					case 7: {
+						menu_var[menu_lcd+cursor_pos] += poll_encoder();
+						lcd_set_xy(12,cursor_pos);
+						lcd_out_var((uint16_t)menu_var[menu_lcd+cursor_pos]);
+						break;
+					}
+					
+					case 8: {
+						menu_var[menu_lcd+cursor_pos] += poll_encoder();
+						lcd_set_xy(12,cursor_pos);
+						lcd_out_var((uint16_t)menu_var[menu_lcd+cursor_pos]);
+						break;
+					}
+					
+					case 9: {
+						menu_var[menu_lcd+cursor_pos] += poll_encoder();
+						lcd_set_xy(12,cursor_pos);
+						lcd_out_var((uint16_t)menu_var[menu_lcd+cursor_pos]);
 						break;
 					}		
 				}
 			} else {
-				menu += (uint8_t) (poll_encoder());
-				if ((int8_t)menu > 5) {
-					menu = 5;
+// 				menu += (uint8_t) (poll_encoder());
+// 				if ((int8_t)menu > MENU_ITEMS) {
+// 					menu = MENU_ITEMS;
+// 				}
+// 				if ((int8_t)menu < 0) {
+// 					menu = 0;
+// 				}
+
+				temp = (uint8_t) (poll_encoder());						
+				
+				if ((cursor_pos > 0) && ((int8_t)temp > 0))	{
+					menu +=temp;
+				} else if ((cursor_pos < 1) && ((int8_t)temp < 0)) {
+					menu +=temp;
+				}
+				
+				if ((int8_t)menu > MENU_ITEMS) {
+					menu = MENU_ITEMS;
 				}
 				if ((int8_t)menu < 0) {
 					menu = 0;
+				}
+				
+				cursor_pos += temp;
+				if ((int8_t)cursor_pos > 1){
+					cursor_pos = 1;
+				}
+				if ((int8_t)cursor_pos < 0) {
+					cursor_pos = 0;					
 				}
 			}			
 			
@@ -691,6 +792,8 @@ index_buf		 = 0;
 					btn_flag ^= 0x02;										
 				}
 			}
+			
+			
 			
 		}
 		
