@@ -25,8 +25,7 @@ volatile unsigned int U1, U2, CH1_count, CH2_count;
 	const char str12[] PROGMEM = "Meíþ 11";
 	
 	const char* const menu_ptr[] PROGMEM = { str1, str2, str3, str4, str5, str6, str7, str8, str9, str10, str11, str12};
-	const char* const str6_ptr PROGMEM = str6;
-	
+	const char* const str6_ptr PROGMEM = str6;	
 	
 
 #define PA0_ON		PORTA |= (1<<PB0);
@@ -64,11 +63,21 @@ int8_t poll_encoder(void);
 
 volatile unsigned char i2c_slave_adr;
 
-#define GY_ADR							  0b10100000
-#define HLF8574T_ADR			(0x1E<<1)
-#define SLA_W					HLF8574T_ADR & 0b11111110
-#define SLA_R					HLF8574T_ADR | 0b00000001
+#define GY_ADR					 0b10100000
+#define HLF8574T_ADR			(0x27)
+#define SLA_W					(HLF8574T_ADR<<1) & 0b11111110
+#define SLA_R					(HLF8574T_ADR<<1) | 0b00000001
 //#define ADDR					0x01
+
+// LCD1602		HLF8574T
+// RS			P0
+// R/W			P1
+// E			P2
+// -LED			P3
+// D4			P4
+// D5			P5
+// D6			P6
+// D7			P7
 
 
 #define TWSR_MASK				0xF8
@@ -595,7 +604,7 @@ index_buf		 = 0;
 		menu_var[i] = 0;
 	}
 	
-	i2c_slave_adr = 0x27;	
+	i2c_slave_adr = HLF8574T_ADR;	
 	i2c_write(0x00,0);
 	
 	while(1)
